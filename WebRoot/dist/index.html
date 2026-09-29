@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NodeBox</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1e1e2e;
+      --panel:     #181825;
+      --border:    #313244;
+      --accent:    #89b4fa;
+      --accent2:   #cba6f7;
+      --text:      #cdd6f4;
+      --muted:     #6c7086;
+      --run-bg:    #a6e3a1;
+      --run-fg:    #1e1e2e;
+      --error:     #f38ba8;
+      --warn:      #fab387;
+      --canvas-bg: #0d1117;
+      --toolbar-h: 42px;
+      --console-h: 130px;
+      --split:     50%;       /* editor / canvas split */
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    /* ── Layout ──────────────────────────────────────────── */
+
+    #app {
+      display: grid;
+      grid-template-rows: var(--toolbar-h) 1fr var(--console-h);
+      height: 100%;
+    }
+
+    /* ── Toolbar ─────────────────────────────────────────── */
+
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: drag;
+    }
+
+    #toolbar > * { -webkit-app-region: no-drag; }
+
+    #fallback-editor {
+      width: 100%; height: 100%;
+      background: #1e1e1e; color: var(--text);
+      border: none; outline: none; resize: none;
+      padding: 10px 12px;
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+      font-size: 13px; line-height: 1.5;
+      tab-size: 2;
+    }
+
+    #toolbar .logo {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--accent2);
+      letter-spacing: .02em;
+      margin-right: 4px;
+    }
+
+    #btn-run {
+      background: var(--run-bg);
+      color: var(--run-fg);
+      border: none;
+      border-radius: 6px;
+      padding: 5px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .12s;
+    }
+    #btn-run:hover { opacity: .85; }
+    #btn-run:active { opacity: .7; }
+
+    #btn-stop {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #btn-stop:hover:not(:disabled) { border-color: var(--error); color: var(--error); }
+    #btn-stop:disabled { opacity: .35; cursor: default; }
+
+    #examples {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font: inherit;
+      max-width: 260px;
+    }
+
+    /* var() panel — NodeBox's live variables, floating over the canvas */
+    #vars {
+      position: absolute;
+      top: 10px; right: 10px;
+      min-width: 220px;
+      max-height: calc(100% - 20px);
+      overflow-y: auto;
+      background: rgba(24, 24, 37, .88);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: none;
+      font-size: 12px;
+      z-index: 2;
+      backdrop-filter: blur(6px);
+    }
+    #vars.show { display: block; }
+    .var-row { display: grid; grid-template-columns: 80px 1fr 44px; gap: 6px; align-items: center; margin: 4px 0; }
+    .var-row label { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .var-row .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+    .var-row input[type=text] { grid-column: 2 / 4; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; }
+    .var-row button { grid-column: 2 / 4; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px; cursor: pointer; }
+    canvas:focus { outline: none; }
+
+    .sep { flex: 1; }
+
+    #fps-label {
+      color: var(--muted);
+      font-size: 11px;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    /* ── Main area (editor | canvas) ─────────────────────── */
+
+    #main {
+      display: grid;
+      grid-template-columns: var(--split) 1fr;
+      overflow: hidden;
+    }
+
+    #editor-pane {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    #editor-header {
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #monaco-container {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #canvas-pane {
+      position: relative;
+      background: var(--canvas-bg);
+      overflow: hidden;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #canvas-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 12px;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* ── Console ─────────────────────────────────────────── */
+
+    #console {
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 6px 12px;
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .log-line { color: var(--text); }
+    .log-error { color: var(--error); }
+    .log-warn  { color: var(--warn); }
+    .log-muted { color: var(--muted); font-style: italic; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Toolbar -->
+  <div id="toolbar" data-aotrino-drag>
+    <span class="logo">NodeBox</span>
+    <!-- data-aotrino-nodrag: otherwise AOTrino turns mousedown into a window drag and the click never fires -->
+    <button id="btn-run" data-aotrino-nodrag title="Run script (Ctrl+Enter)">▶ Run</button>
+    <button id="btn-stop" data-aotrino-nodrag title="Stop animation (Esc)" disabled>■ Stop</button>
+    <select id="examples" data-aotrino-nodrag title="Load an example into the editor">
+      <option value="">Examples…</option>
+    </select>
+    <div class="sep"></div>
+    <span id="fps-label"></span>
+  </div>
+
+  <!-- Editor | Canvas -->
+  <div id="main">
+    <div id="editor-pane">
+      <div id="editor-header">script.js</div>
+      <div id="monaco-container"></div>
+    </div>
+    <div id="canvas-pane">
+      <!-- AOTrino attaches this canvas to the .NET Direct2D surface named "canvas" -->
+      <canvas data-aotrino-surface="canvas" tabindex="0"></canvas>
+      <div id="vars"></div>
+      <div id="canvas-hint">Press ▶ Run to render</div>
+    </div>
+  </div>
+
+  <!-- Console -->
+  <div id="console"><span class="log-muted">Console output will appear here.</span></div>
+
+</div>
+
+<!-- NodeBox runtime: records drawing calls into a binary frame (see nodebox.js) -->
+<script src="nodebox.js"></script>
+
+<!-- Monaco Editor from CDN (no bundler needed) -->
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
+<script>
+'use strict';
+
+// ── Starter sketch ────────────────────────────────────────────────────────
+
+const STARTER = `\
+// Fuzzy orbs — marbled, furry spheres trailing long tendrils.
+// The marbling is a procedural kaleidoscope (no image() needed):
+// random motifs in one 30° wedge, mirrored and repeated 6× around the centre.
+// Plain script → rendered once. Re-run for new textures, fur and tendrils.
+
+// ── Work in a 700×700 space, fitted to the window ──
+const S  = Math.min(WIDTH, HEIGHT) / 700;
+const OX = (WIDTH  - 700 * S) / 2;
+const OY = (HEIGHT - 700 * S) / 2;
+const RAD = Math.PI / 180;
+
+// ── Palette: parchment, umber, soot ──
+const LIGHT  = color('#eadcc0');
+const TAN    = color('#b89c74');
+const UMBER  = color('#5b3d24');
+const SOOT   = color('#1c140d');
+const MOTIFS = ['#2e1f14', '#5a3b22', '#8b6b45', '#c9b08a', '#efe3cb'].map((h) => color(h));
+
+// Orbs as (x, y, radius), roughly the original composition; drawn top → bottom,
+// so lower (closer) orbs overlap the ones above.
+const ORBS = [
+  [185, 150, 78], [265, 222, 75], [135, 248, 22], [660, 185, 55], [600, 315, 22],
+  [375, 330, 62], [190, 350, 60], [412, 388, 58], [540, 395, 45], [650, 455, 62],
+  [160, 490, 35], [278, 497, 15], [385, 515, 82], [350, 632, 85],
+].sort((a, b) => a[1] - b[1]);
+
+transform(CORNER);                 // transforms pivot on the origin (layout scaling)
+push();
+translate(OX, OY);
+scale(S);
+
+// ── Background: dark umber sky fading to pale stone ──
+background(lineargradient(0, 0, 0, 700, [
+  [0,   color('#2b221c')],
+  [0.5, color('#6f655c')],
+  [1,   color('#cbc3ba')],
+]));
+
+// ── Tendrils: long sweeping hairs trailing down-right, behind everything ──
+const tendrils = new BezierPath();
+for (const [x, y, r] of ORBS) {
+  const count = Math.round(r * 0.6);
+  for (let i = 0; i < count; i++) {
+    const a  = random(10, 130) * RAD;                     // leave from the lower side
+    const sx = x + Math.cos(a) * r * 0.9, sy = y + Math.sin(a) * r * 0.9;
+    const ex = sx + random(40, 480),       ey = sy + random(120, 620);
+    tendrils.moveto(sx, sy);
+    tendrils.curveto(sx + random(-60, 90),   sy + random(60, 220),
+                     ex + random(-260, -20), ey + random(-240, -40),
+                     ex, ey);
+  }
+}
+nofill();
+stroke(0.2, 0.16, 0.12, 0.28);
+strokewidth(0.45);
+drawpath(tendrils);
+
+// ── Helpers ──
+
+// Fur: short strands radiating from the rim, slightly curved. One path per call.
+function fur(x, y, r, count, from, to, len0, len1) {
+  const p = new BezierPath();
+  for (let i = 0; i < count; i++) {
+    const a  = random(360) * RAD;
+    const r0 = r * random(from, to);
+    const l  = r * random(len0, len1);
+    const sx = x + Math.cos(a) * r0,       sy = y + Math.sin(a) * r0;
+    const ex = x + Math.cos(a) * (r0 + l), ey = y + Math.sin(a) * (r0 + l);
+    const bend = random(-0.25, 0.25) * l;                 // sideways kink
+    const mx = (sx + ex) / 2 - Math.sin(a) * bend, my = (sy + ey) / 2 + Math.cos(a) * bend;
+    p.moveto(sx, sy);
+    p.curveto(mx, my, mx, my, ex, ey);
+  }
+  return p;
+}
+
+// One kaleidoscope motif (triangle, lens or dot) as a path in local coordinates.
+function motif(kind, size) {
+  const p = new BezierPath();
+  if (kind === 0) {                                       // triangle
+    p.moveto(0, -size); p.lineto(size * 0.87, size * 0.5); p.lineto(-size * 0.87, size * 0.5); p.closepath();
+  } else if (kind === 1) {                                // lens / petal
+    p.moveto(-size, 0);
+    p.curveto(-size * 0.4, -size * 0.8, size * 0.4, -size * 0.8, size, 0);
+    p.curveto(size * 0.4, size * 0.8, -size * 0.4, size * 0.8, -size, 0);
+    p.closepath();
+  } else {                                                // blob
+    const k = 0.55 * size;
+    p.moveto(size, 0);
+    p.curveto(size, k, k, size, 0, size);    p.curveto(-k, size, -size, k, -size, 0);
+    p.curveto(-size, -k, -k, -size, 0, -size); p.curveto(k, -size, size, -k, size, 0);
+    p.closepath();
+  }
+  return p;
+}
+
+// Kaleidoscope marbling: motifs placed in one wedge, then reflected and rotated
+// 6× (12 copies). Everything stays within 0.86 r, so no clipping is needed.
+function marble(x, y, r) {
+  nostroke();
+  const n = Math.round(10 + r * 0.22);
+  for (let i = 0; i < n; i++) {
+    const size = r * random(0.04, 0.16);
+    const rho  = random(0.08, 0.86) * r - size;
+    if (rho < 0) continue;
+    const theta = random(0, 30);                         // inside the wedge
+    const kind  = Math.floor(random(3));
+    const spin  = random(360);
+    const clr   = choice(MOTIFS).withAlpha(random(0.35, 0.8));
+    const shape = motif(kind, size);
+    fill(clr);
+    for (let j = 0; j < 6; j++) {
+      for (const mirror of [1, -1]) {                     // reflection = kaleidoscope
+        push();
+        translate(x, y);
+        rotate(j * 60 + mirror * theta);
+        translate(rho, 0);
+        rotate(mirror * spin);
+        scale(1, mirror);
+        drawpath(shape);
+        pop();
+      }
+    }
+  }
+}
+
+// ── Orbs ──
+for (const [x, y, r] of ORBS) {
+  // Fur behind the body: dark, dense, longest at the rim.
+  noshadow();
+  nofill();
+  stroke(SOOT.withAlpha(0.55));
+  strokewidth(0.5);
+  drawpath(fur(x, y, r, Math.round(r * 11), 0.82, 1.0, 0.08, 0.34));
+
+  // Body: warm radial gradient, lit from the upper-left, soft drop shadow.
+  shadow('black', r * 0.35 * S, 0, r * 0.18 * S, 0.35);
+  nostroke();
+  fill(radialgradient(x - r * 0.3, y - r * 0.35, r * 1.35, [
+    [0,    LIGHT],
+    [0.45, TAN],
+    [1,    UMBER],
+  ]));
+  oval(x - r, y - r, r * 2, r * 2);
+  noshadow();
+
+  // Marbled kaleidoscope texture.
+  marble(x, y, r);
+
+  // Shading over the texture: glossy highlight → transparent → dark rim.
+  fill(radialgradient(x - r * 0.3, y - r * 0.35, r * 1.4, [
+    [0,    color(1, 0.97, 0.9, 0.35)],
+    [0.35, color(1, 1, 1, 0)],
+    [0.75, color(0.08, 0.05, 0.03, 0.35)],
+    [1,    color(0.05, 0.03, 0.02, 0.9)],
+  ]));
+  oval(x - r, y - r, r * 2, r * 2);
+
+  // Fur in front of the rim: breaks up the silhouette.
+  nofill();
+  stroke(SOOT.withAlpha(0.6));
+  strokewidth(0.45);
+  drawpath(fur(x, y, r, Math.round(r * 5), 0.9, 0.99, 0.05, 0.22));
+}
+
+pop();
+
+`;
+
+// ── Editor setup ──────────────────────────────────────────────────────────
+//
+// Monaco comes from a CDN. If it can't load (offline, proxy…), fall back to a
+// plain <textarea> so the page — and the Run button — still work.
+
+// `editor` only needs getValue(); both Monaco and the fallback provide it.
+let editor = null;
+
+function useFallbackEditor(reason) {
+  if (editor) return;
+  const ta = document.createElement('textarea');
+  ta.id = 'fallback-editor';
+  ta.spellcheck = false;
+  ta.value = STARTER;
+  ta.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); runScript(); }
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      ta.setRangeText('  ', ta.selectionStart, ta.selectionEnd, 'end');
+    }
+  });
+  const host = document.getElementById('monaco-container');
+  host.innerHTML = '';
+  host.appendChild(ta);
+  editor = { getValue: () => ta.value, setValue: (v) => { ta.value = v; } };
+  logWarn(`Monaco unavailable (${reason}) — using plain editor.`);
+}
+
+if (typeof require === 'undefined' || typeof require.config !== 'function') {
+  setTimeout(() => useFallbackEditor('loader.js failed to load'), 0);
+} else {
+  require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs' } });
+  require(['vs/editor/editor.main'], createMonaco, (err) => useFallbackEditor(err?.message ?? 'load error'));
+}
+
+function createMonaco() {
+  if (editor) return;
+  editor = monaco.editor.create(document.getElementById('monaco-container'), {
+    value: STARTER,
+    language: 'javascript',
+    theme: 'vs-dark',
+    fontSize: 13,
+    fontFamily: '"Cascadia Code", "Fira Code", Consolas, monospace',
+    fontLigatures: true,
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    lineNumbers: 'on',
+    renderLineHighlight: 'gutter',
+    padding: { top: 10, bottom: 10 },
+    automaticLayout: true,
+  });
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runScript());
+}
+
+// ── Bridge ────────────────────────────────────────────────────────────────
+
+function getHost() {
+  return chrome?.webview?.hostObjects?.sync?.nb ?? null;
+}
+
+// ── Canvas metrics & mouse ────────────────────────────────────────────────
+
+const canvasEl = document.querySelector('canvas[data-aotrino-surface]');
+const mouse = { x: 0, y: 0, down: false };
+
+canvasEl.addEventListener('pointermove', (e) => {
+  const r = canvasEl.getBoundingClientRect();
+  mouse.x = e.clientX - r.left;
+  mouse.y = e.clientY - r.top;
+});
+canvasEl.addEventListener('pointerdown', (e) => {
+  mouse.down = true;
+  canvasEl.setPointerCapture(e.pointerId);
+  canvasEl.focus();                       // keyboard goes to the sketch after a click
+});
+canvasEl.addEventListener('pointerup',   () => { mouse.down = false; });
+
+// Keyboard (NodeBox: keydown, key, keycode) — only while the canvas has focus.
+const keys = { down: false, key: '', code: 0 };
+canvasEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') return;         // Esc stays "stop animation"
+  keys.down = true;
+  keys.key = e.key.length === 1 ? e.key : '';
+  keys.code = e.keyCode;
+  if (e.key.startsWith('Arrow') || e.key === ' ' || e.key === 'Tab') e.preventDefault();
+});
+canvasEl.addEventListener('keyup', () => { keys.down = false; });
+canvasEl.addEventListener('blur',  () => { keys.down = false; });
+
+// ── Globals the sketch sees ───────────────────────────────────────────────
+
+let FRAME_ = 0;
+let fps_ = 30;
+
+// text measurement goes through the bridge (same DirectWrite layout as drawing)
+NodeBox.setMeasurer((s, font, size, lh, align, width) =>
+  getHost().measure(s, font, size, lh, align, width));
+
+// textpath() glyph outlines also come from DirectWrite through the bridge
+NodeBox.setOutliner((s, font, size, lh, align, x, y, width) =>
+  getHost().textpath(s, font, size, lh, align, x, y, width));
+
+function installGlobals() {
+  for (const [name, fn] of Object.entries(NodeBox.api)) window[name] = fn;
+
+  window.speed = (fps) => { fps_ = Math.max(1, Math.min(240, +fps || 30)); };
+
+  const ro = (name, get) => Object.defineProperty(window, name, { get, configurable: true });
+  ro('WIDTH',     () => NodeBox.width);            // size() canvas, or the whole pane
+  ro('HEIGHT',    () => NodeBox.height);
+  ro('FRAME',     () => FRAME_);
+  ro('MOUSEX',    () => NodeBox.toCanvas(mouse.x, mouse.y)[0]);
+  ro('MOUSEY',    () => NodeBox.toCanvas(mouse.x, mouse.y)[1]);
+  ro('mousedown', () => mouse.down);
+  ro('keydown',   () => keys.down);
+  ro('key',       () => keys.key);
+  ro('keycode',   () => keys.code);
+  Object.assign(window, {
+    KEY_UP: 38, KEY_DOWN: 40, KEY_LEFT: 37, KEY_RIGHT: 39,
+    KEY_BACKSPACE: 8, KEY_TAB: 9, KEY_ESC: 27, KEY_ENTER: 13, KEY_SPACE: 32,
+  });
+
+  // variable(name, type, default, min, max) — NodeBox's var() (a reserved word in JS):
+  // live variables shown in the panel over the canvas.
+  Object.assign(window, { NUMBER: 'number', TEXT: 'text', BOOLEAN: 'boolean', BUTTON: 'button' });
+  window.variable = declareVar;
+}
+installGlobals();
+
+// ── variable() (NodeBox's var()): live variables ─────────────────────────────────────────────────
+//
+// variable('size', NUMBER, 30, 10, 100) creates a global `size` and a slider in the
+// panel. Values survive re-runs. Changing one re-runs a static sketch, or is
+// simply picked up by the next frame of an animation. BUTTON calls the global
+// function with the variable's name.
+
+const varsEl = document.getElementById('vars');
+const varValues = new Map();      // name → value, kept across runs
+const varRows = new Map();        // name → { row, type, seen }
+let rerunPending = false;
+
+function declareVar(name, type = 'number', value, min = 0, max = 100) {
+  name = String(name);
+  type = String(type).toLowerCase();
+  let v = varValues.has(name) ? varValues.get(name) : value;
+  if (type === 'number') {
+    v = +(v ?? (min + max) / 2);
+    v = Math.min(Math.max(v, min), max);
+  } else if (type === 'boolean') v = !!v;
+  else if (type === 'text') v = String(v ?? '');
+  varValues.set(name, v);
+  if (type !== 'button') window[name] = v;
+
+  let entry = varRows.get(name);
+  if (!entry || entry.type !== type) {
+    entry?.row.remove();
+    entry = { row: buildVarRow(name, type, v, min, max), type };
+    varRows.set(name, entry);
+    varsEl.appendChild(entry.row);
+  } else if (type === 'number') {
+    const input = entry.row.querySelector('input');
+    input.min = min; input.max = max;
+  }
+  entry.seen = true;
+  varsEl.classList.add('show');
+  return v;
+}
+
+function buildVarRow(name, type, v, min, max) {
+  const row = document.createElement('div');
+  row.className = 'var-row';
+  const label = document.createElement('label');
+  label.textContent = name;
+  label.title = name;
+  row.appendChild(label);
+  const changed = (val) => {
+    varValues.set(name, val);
+    window[name] = val;
+    if (!rafId && !rerunPending) {          // static sketch → re-run (coalesced)
+      rerunPending = true;
+      requestAnimationFrame(() => { rerunPending = false; runScript(true); });
+    }
+  };
+  if (type === 'number') {
+    const input = Object.assign(document.createElement('input'), { type: 'range', min, max, value: v });
+    const isInt = Number.isInteger(min) && Number.isInteger(max) && Number.isInteger(v) && max - min > 10;
+    input.step = isInt ? 1 : (max - min) / 1000;
+    const out = Object.assign(document.createElement('span'), { className: 'val' });
+    const show = (x) => { out.textContent = isInt ? x : (+x).toFixed(2); };
+    show(v);
+    input.addEventListener('input', () => { show(input.value); changed(+input.value); });
+    row.append(input, out);
+  } else if (type === 'boolean') {
+    const input = Object.assign(document.createElement('input'), { type: 'checkbox', checked: v });
+    input.addEventListener('change', () => changed(input.checked));
+    row.append(input, document.createElement('span'));
+  } else if (type === 'text') {
+    const input = Object.assign(document.createElement('input'), { type: 'text', value: v });
+    input.addEventListener('change', () => changed(input.value));
+    row.append(input);
+  } else {
+    const btn = Object.assign(document.createElement('button'), { textContent: name });
+    btn.addEventListener('click', () => {
+      try { if (typeof window[name] === 'function') window[name](); }
+      catch (e) { logError(`${name}(): ${e?.message ?? e}`); }
+    });
+    row.append(btn);
+  }
+  return row;
+}
+
+// Before a run: mark rows; after: drop the ones the sketch no longer declares.
+function beginVars(keep) {
+  if (!keep) { varRows.forEach((e) => e.row.remove()); varRows.clear(); varsEl.classList.remove('show'); }
+  varRows.forEach((e) => { e.seen = false; });
+}
+function endVars() {
+  for (const [name, e] of varRows) if (!e.seen) { e.row.remove(); varRows.delete(name); }
+  varsEl.classList.toggle('show', varRows.size > 0);
+}
+
+// autotext('kant.xml') etc. read data files shipped with the examples.
+NodeBox.setFileLoader((name) => {
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', 'examples/data/' + encodeURIComponent(String(name).split(/[\\/]/).pop()), false);
+  xhr.send();
+  if (xhr.status && xhr.status !== 200) throw new Error(`Cannot load "${name}" (${xhr.status})`);
+  return xhr.responseText;
+});
+
+NodeBox.setSpeedCallback((fps) => { fps_ = Math.max(1, Math.min(240, fps)); });
+
+// ── Run / animation loop ──────────────────────────────────────────────────
+
+const btnRun  = document.getElementById('btn-run');
+const btnStop = document.getElementById('btn-stop');
+const fpsLabel = document.getElementById('fps-label');
+
+let rafId = 0;
+let lastErr = '';
+
+function newFrame() {
+  NodeBox.setViewport(canvasEl.clientWidth, canvasEl.clientHeight);
+  NodeBox.beginFrame(window.devicePixelRatio);
+}
+
+function submit(host, animate) {
+  NodeBox.endFrame();                       // size(): letterbox margins
+  const err = host.submit(NodeBox.frameBase64(), NodeBox.frameStrings(), animate);
+  if (err && err !== lastErr) logError('Render: ' + err);
+  lastErr = err || '';
+}
+
+function stopLoop() {
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = 0;
+  btnStop.disabled = true;
+  const host = getHost();
+  try { host?.stop(); } catch { /* bridge gone */ }
+}
+
+function runScript(keepVars = false) {
+  const host = getHost();
+  if (!host) { logError('Host object not available yet. Is WebView2 ready?'); return; }
+  if (!editor) { logWarn('Editor is still loading…'); return; }
+
+  stopLoop();
+  clearConsole();
+  lastErr = '';
+  FRAME_ = 0;
+  fps_ = 30;
+  NodeBox.resetRun();          // colormode/range, text state, transform(CENTER), no size()
+  beginVars(keepVars === true);
+  document.getElementById('canvas-hint').style.display = 'none';
+
+  // Compile: the sketch body runs once; setup()/draw() are picked up if defined.
+  let sketch;
+  const t0 = performance.now();
+  newFrame();
+  try {
+    // eslint-disable-next-line no-new-func
+    sketch = new Function(
+      editor.getValue() +
+      '\n;return { setup: typeof setup === "function" ? setup : null,' +
+      '           draw:  typeof draw  === "function" ? draw  : null };'
+    )();
+    sketch.setup?.();
+  } catch (e) {
+    logError(e?.message ?? String(e));
+    endVars();
+    return;
+  }
+  endVars();
+
+  // ── Static sketch: one frame, done.
+  if (!sketch.draw) {
+    submit(host, false);
+    const ms = (performance.now() - t0).toFixed(1);
+    fpsLabel.textContent = `${ms} ms · ${(NodeBox.length * 4 / 1024).toFixed(1)} KB`;
+    return;
+  }
+
+  // ── Animated sketch: draw() every frame, throttled to speed().
+  // Frame 0 keeps whatever the top level / setup() drew, then draw() adds to it.
+  btnStop.disabled = false;
+  let first = true;
+  let last = 0, fpsT = performance.now(), fpsN = 0;
+
+  const tick = (now) => {
+    rafId = requestAnimationFrame(tick);
+    if (!first && now - last < 1000 / fps_ - 1) return;   // throttle
+    last = now;
+
+    if (!first) newFrame();
+    first = false;
+
+    try {
+      sketch.draw();
+    } catch (e) {
+      logError(`draw() at FRAME ${FRAME_}: ${e?.message ?? e}`);
+      stopLoop();
+      return;
+    }
+
+    submit(host, true);
+    FRAME_++;
+
+    fpsN++;
+    if (now - fpsT >= 500) {
+      fpsLabel.textContent = `${(fpsN * 1000 / (now - fpsT)).toFixed(0)} fps · FRAME ${FRAME_}`;
+      fpsT = now; fpsN = 0;
+    }
+  };
+  rafId = requestAnimationFrame(tick);
+}
+
+btnRun.addEventListener('click', () => runScript());
+btnStop.addEventListener('click', stopLoop);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && rafId) { e.preventDefault(); stopLoop(); return; }
+  if (e.ctrlKey && e.key === 'Enter' && !e.defaultPrevented &&
+      !document.activeElement?.closest?.('#monaco-container')) {
+    e.preventDefault();
+    runScript();
+  }
+});
+
+// ── Examples menu ─────────────────────────────────────────────────────────
+// examples/index.json: [{ category, name, file, description }]
+
+const examplesEl = document.getElementById('examples');
+fetch('examples/index.json')
+  .then((r) => r.json())
+  .then((list) => {
+    const groups = new Map();
+    for (const ex of list) {
+      if (!groups.has(ex.category)) {
+        const g = document.createElement('optgroup');
+        g.label = ex.category;
+        groups.set(ex.category, g);
+        examplesEl.appendChild(g);
+      }
+      const o = document.createElement('option');
+      o.value = ex.file;
+      o.textContent = ex.name;
+      o.title = ex.description ?? '';
+      groups.get(ex.category).appendChild(o);
+    }
+  })
+  .catch(() => { examplesEl.style.display = 'none'; });
+
+examplesEl.addEventListener('change', async () => {
+  const file = examplesEl.value;
+  examplesEl.value = '';
+  if (!file || !editor) return;
+  try {
+    const code = await (await fetch('examples/' + file)).text();
+    editor.setValue(code);
+    runScript();
+  } catch (e) {
+    logError(`Cannot load example "${file}": ${e?.message ?? e}`);
+  }
+});
+
+// ── Console ───────────────────────────────────────────────────────────────
+
+const consoleEl = document.getElementById('console');
+
+function clearConsole() { consoleEl.innerHTML = ''; }
+
+function logLine(text, cls = 'log-line') {
+  const div = document.createElement('div');
+  div.className = cls;
+  div.textContent = text;
+  consoleEl.appendChild(div);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+function logError(text) { logLine('✖ ' + text, 'log-error'); }
+function logWarn(text)  { logLine('⚠ ' + text, 'log-warn'); }
+
+// Intercept console.* so sketches can print here too.
+const _console = { log: console.log, warn: console.warn, error: console.error };
+console.log   = (...a) => { _console.log(...a);   logLine(a.join(' ')); };
+console.warn  = (...a) => { _console.warn(...a);  logWarn(a.join(' ')); };
+console.error = (...a) => { _console.error(...a); logError(a.join(' ')); };
+</script>
+</body>
+</html>

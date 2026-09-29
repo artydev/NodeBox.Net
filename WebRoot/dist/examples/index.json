@@ -1,0 +1,182 @@
+[
+  {
+    "category": "Gallery",
+    "name": "Fuzzy Orbs",
+    "file": "Gallery/fuzzy-orbs.js",
+    "description": "Marbled, furry spheres with kaleidoscope textures trailing long tendrils."
+  },
+  {
+    "category": "Gallery",
+    "name": "Superfolia",
+    "file": "Gallery/superfolia.js",
+    "description": "Translucent veined leaves, pink bubbles, cream blossoms and grey line tangles along a curved spine."
+  },
+  {
+    "category": "Gallery",
+    "name": "Nebula",
+    "file": "Gallery/nebula.js",
+    "description": "Elegant generative nebula: layers of translucent Bézier curves in subtle HSB colour variations. Ported from Tom De Smedt's NodeBox 1 classic."
+  },
+  {
+    "category": "Animation",
+    "name": "Hypnoval",
+    "file": "Animation/Hypnoval.js",
+    "description": "Hypnotic concentric ovals animated with sine and cosine functions."
+  },
+  {
+    "category": "Animation",
+    "name": "Parade",
+    "file": "Animation/Parade.js",
+    "description": "Object-oriented actors parading across the screen, each with their own personality."
+  },
+  {
+    "category": "Animation",
+    "name": "WishyWorm",
+    "file": "Animation/WishyWorm.js",
+    "description": "A wriggling worm of stars built from mathematical transforms."
+  },
+  {
+    "category": "Grid",
+    "name": "Balls",
+    "file": "Grid/Balls.js",
+    "description": "Bubble composition that breaks loose from a regular grid layout."
+  },
+  {
+    "category": "Grid",
+    "name": "Color Grid",
+    "file": "Grid/ColorGrid.js",
+    "description": "Grid of rectangles exploring the HSB colour space."
+  },
+  {
+    "category": "Grid",
+    "name": "Foliage",
+    "file": "Grid/Foliage.js",
+    "description": "Skewed green stars arranged in a grid to create a leafy foliage pattern."
+  },
+  {
+    "category": "Grid",
+    "name": "Form Function",
+    "file": "Grid/FormFunction.js",
+    "description": "A grid randomly filled with ovals and rectangles in varying sizes."
+  },
+  {
+    "category": "Math",
+    "name": "How Curves Work",
+    "file": "Math/HowCurvesWork.js",
+    "description": "Visual explanation of Bézier curve handles and control points."
+  },
+  {
+    "category": "Math",
+    "name": "Math Sculpture",
+    "file": "Math/MathSculpture.js",
+    "description": "Sculptures grown from mathematical functions with compounding transforms."
+  },
+  {
+    "category": "Math",
+    "name": "Tunnel Effect",
+    "file": "Math/TunnelEffect.js",
+    "description": "A tunnel effect generated from sine and cosine functions."
+  },
+  {
+    "category": "Path",
+    "name": "BitBop",
+    "file": "Path/BitBop.js",
+    "description": "Dots placed inside text shapes using path.contains()."
+  },
+  {
+    "category": "Path",
+    "name": "Spider",
+    "file": "Path/Spider.js",
+    "description": "Lines connecting sampled points on letter outlines to form a web."
+  },
+  {
+    "category": "Primitives",
+    "name": "Appending Transforms",
+    "file": "Primitives/AppendingTransforms.js",
+    "description": "Compounding transformations to create very large and very small compositions."
+  },
+  {
+    "category": "Primitives",
+    "name": "Cover Gen",
+    "file": "Primitives/CoverGen.js",
+    "description": "Random book-cover generator using HSB colours."
+  },
+  {
+    "category": "Primitives",
+    "name": "Ovals",
+    "file": "Primitives/Ovals.js",
+    "description": "Simple stroked circles with random radii and positions."
+  },
+  {
+    "category": "Primitives",
+    "name": "Star Fun",
+    "file": "Primitives/StarFun.js",
+    "description": "Compounding star transforms building elaborate patterns."
+  },
+  {
+    "category": "Text",
+    "name": "Copyrights",
+    "file": "Text/Copyrights.js",
+    "description": "Demonstrates Unicode text rendering with various international characters."
+  },
+  {
+    "category": "Text",
+    "name": "Grid Grid",
+    "file": "Text/GridGrid.js",
+    "description": "A grid of text grids using CORNER-mode transforms."
+  },
+  {
+    "category": "Text",
+    "name": "Number Tunnel",
+    "file": "Text/NumberTunnel.js",
+    "description": "A tunnel of numbers built with compounding transforms."
+  },
+  {
+    "category": "Text",
+    "name": "Organic Ball",
+    "file": "Text/OrganicBall.js",
+    "description": "Organic ball composed of letters in the calligraphic Gabriola font."
+  },
+  {
+    "category": "Text",
+    "name": "Random Font",
+    "file": "Text/RandomFont.js",
+    "description": "Randomly selected fonts with a live slider to control text size."
+  },
+  {
+    "category": "Text",
+    "name": "Random Text",
+    "file": "Text/RandomText.js",
+    "description": "Abstract compositions from randomly placed and rotated words."
+  },
+  {
+    "category": "Text",
+    "name": "Text From List",
+    "file": "Text/TextFromList.js",
+    "description": "Compositions generated from a curated word list."
+  },
+  {
+    "category": "Advanced",
+    "name": "Sorting",
+    "file": "Advanced/Sorting.js",
+    "description": "Shapes sorted by position before drawing — reinterpreted for a retained-mode canvas."
+  },
+  {
+    "category": "Content",
+    "name": "Auto Text",
+    "file": "Content/AutoText.js",
+    "description": "Text generated from XML grammars using the Kant Generator Pro."
+  },
+  {
+    "category": "Interactivity",
+    "name": "Avoider",
+    "file": "Interactivity/Avoider.js",
+    "description": "The first NodeBox game — dodge red blobs for as long as possible. Use arrow keys."
+  },
+  {
+    "category": "Interactivity",
+    "name": "Drawing",
+    "file": "Interactivity/Drawing.js",
+    "description": "Draw with the mouse; the line mutates as you drag."
+  }
+]
